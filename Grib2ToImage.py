@@ -10,25 +10,44 @@ import json
 import math
 from PIL import Image
 import os 
-
+import urllib.request
+from datetime import datetime
+import time
 Pi = 3.14159
 weather_cmd = 'bin\grib2json.cmd'
 weather_input_data = 'gribdata\windsigma995.anl'
 weather_output_data = 'jsondata\windsigma995.json'
 weather_texture = 'imagedata\windsigma995.jpg'
-
+#date = '20190730%2F12'
+now = datetime.fromtimestamp(time.time()-3600*3)
+h = 0
+if now.hour > 6:
+    h=6
+if(now.hour>12):
+    h=12
+if(now.hour>18):
+    h=18
+d = '{}{:02d}{:02d}%2F{:02d}'.format(now.year, now.month,now.day,h)
+url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}'.format(h,d)
+urllib.request.urlretrieve(url, 'gribdata\windsigma995.anl')
 os.system('{} -d -o {} {}'.format(weather_cmd, weather_output_data,weather_input_data))
+wind_vmax = 30.0 #   kph
+
+
+
+def rgb(minimum, maximum, value):
+    minimum, maximum = float(minimum), float(maximum)
+    ratio = 2.0 * (value-minimum) / (maximum - minimum)
+    r = (max(0.0, 255.0*(1.0 - ratio)))
+    b = (max(0.0, 255.0*(ratio - 1.0)))
+    g = 255 - b - r
+    return r, g, b
+
 
 def compute_color1(val):
-    red_offset = 0.0#35.0;
-    green_offset = 0.0#25.0;
-    blue_offset = 0.0#7.5;
-    val = math.log(val+1)/4.0
-    r = math.cos(val);
-    g = math.sin(val);
-    b = val;
-    color = (255.0*(r), 255.0*(g),255.0*b)
-    _color = ((r), (g),b)
+    r,g,b = rgb(0.0,wind_vmax,val)
+    _color = (r/255.0,g/255.0,b/255.0)
+    color = ((r), (g),b)
     return color, _color
 
 def populate_image1(data):
@@ -54,22 +73,7 @@ def populate_image1(data):
     image=np.concatenate((image2, image1), axis=1)
     _image=np.concatenate((_image2, _image1), axis=1)
     return image, _image
-
-def populate_image2(data):
-    image = []
-    _image=[]
-    x = 0;
-    for i in range((data[0]['header']['numberPoints'])):
-        val = (math.sqrt(math.pow(data[x]['data'][i],2)+math.pow(data[x+1]['data'][i],2)))
-        val = val/10.0
-        image.append(val)
-        _image.append(val);
-    image = np.array(image);
-    image = image.reshape(181,360,1);
-    _image = np.array(_image);
-    _image = _image.reshape(181,360,1);
-    return image, _image
-        
+  
 with open(weather_output_data) as json_file:
     data = json.load(json_file)                
     image, _image = populate_image1(data)
