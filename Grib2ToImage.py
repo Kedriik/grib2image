@@ -15,26 +15,40 @@ from datetime import datetime
 import time
 Pi = 3.14159
 weather_cmd = 'bin\grib2json.cmd'
-weather_input_data = 'gribdata\windsigma995.anl'
-weather_output_data = 'jsondata\windsigma995.json'
-weather_texture = 'imagedata\windsigma995.jpg'
-#date = '20190730%2F12'
-now = datetime.fromtimestamp(time.time()-3600*3)
+wind_input_data = 'gribdata\windsigma995.anl'
+wind_output_data = 'jsondata\windsigma995.json'
+wind_texture = 'imagedata\windsigma995.jpg'
+
+clouds_input_data = 'gribdata\clouds'
+clouds_output_data = 'jsondata\clouds.json'
+clouds_texture = 'imagedata\clouds.jpg'
+
+weather_input_data = 'gribdata\weather'
+weather_output_data = 'jsondata\weather'
+now = datetime.fromtimestamp(time.time()-3600*6)
 h = 0
-if now.hour > 6:
+if now.hour >= 6:
     h=6
-if(now.hour>12):
+if(now.hour>=12):
     h=12
-if(now.hour>18):
+if(now.hour>=18):
     h=18
-d = '{}{:02d}{:02d}%2F{:02d}'.format(now.year, now.month,now.day,h)
-url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}'.format(h,d)
-urllib.request.urlretrieve(url, 'gribdata\windsigma995.anl')
-os.system('{} -d -o {} {}'.format(weather_cmd, weather_output_data,weather_input_data))
-wind_vmax = 30.0 #   kph
+d = '{}{:02d}{:02d}'.format(now.year, now.month,now.day,h)
+#windurl = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}'.format(h,d)
+url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.f000&var_TCDC=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
 
+urllib.request.urlretrieve(url, weather_input_data)
+#os.system('{} -d -o {} {}'.format(weather_cmd, wind_output_data,wind_input_data))
+#os.system('{} -d -o {} {}'.format(weather_cmd, clouds_output_data,clouds_input_data))
+os.system('{} -n -d -o {} {}'.format(weather_cmd, weather_output_data,weather_input_data))
+os.system('{} -n -o {} {}'.format(weather_cmd, 'current_headers.txt',weather_input_data))
 
+##TCPC is not in package with winds...
+tcpcurl = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.f000&var_TCDC=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
+urllib.request.urlretrieve(tcpcurl, 'gribdata\clouds')
+os.system('{} -n -d -o {} {}'.format(weather_cmd, clouds_output_data,'gribdata\clouds'))
 
+wind_vmax = 30
 def rgb(minimum, maximum, value):
     minimum, maximum = float(minimum), float(maximum)
     ratio = 2.0 * (value-minimum) / (maximum - minimum)
@@ -50,36 +64,69 @@ def compute_color1(val):
     color = ((r), (g),b)
     return color, _color
 
-def populate_image1(data):
+def generate_windspeedmap(u,v,data):
     image = []
     _image=[]
-    nx = (data[0]['header']['nx'])
-    ny = (data[0]['header']['ny'])
+    nx = (data[u]['header']['nx'])
+    ny = (data[u]['header']['ny'])
     numberPoints = (data[0]['header']['numberPoints']);
     for i  in range(numberPoints):
-        val, _val = compute_color1(math.sqrt(math.pow(data[0]['data'][i],2)+math.pow(data[1]['data'][i],2)))
+        val, _val = compute_color1(math.sqrt(math.pow(data[u]['data'][i],2)+math.pow(data[v]['data'][i],2)))
         for c in range(len(val)):
             image.append(val[c]);
             _image.append(_val[c]);
     
     image = np.array(image);
     image = image.reshape(ny,nx,3);
-    _image = np.array(_image);
-    _image = _image.reshape(ny,nx,3);
     image1 = image[0:ny, 0:int(nx/2)]
-    _image1 = _image[0:ny, 0:int(nx/2)]        
     image2 = image[0:ny, int(nx/2):nx]
-    _image2 = _image[0:ny, int(nx/2):nx]        
     image=np.concatenate((image2, image1), axis=1)
-    _image=np.concatenate((_image2, _image1), axis=1)
-    return image, _image
-  
+    
+    return image
+def generate_total_clouds_coverage(n,data):
+    image = []
+    nx = (data[0]['header']['nx'])
+    ny = (data[0]['header']['ny'])
+
+    for i in range(len(data)):
+        for j in range(data[0]['header']['numberPoints']):
+            if(i==n):
+                image.append(255.0*data[i]['data'][j])
+                image.append(255.0*data[i]['data'][j])
+                image.append(255.0*data[i]['data'][j])
+# =============================================================================
+#             else:
+#                 image[j]    +=255.0*data[i]['data'][j]
+#                 image[j+1]  +=255.0*data[i]['data'][j]
+#                 image[j+2]  +=255.0*data[i]['data'][j]
+# =============================================================================
+    image = np.array(image);
+    image = image.reshape(ny,nx,3);
+    image1 = image[0:ny, 0:int(nx/2)]
+    image2 = image[0:ny, int(nx/2):nx]
+    image=np.concatenate((image2, image1), axis=1)    
+    return image;
+    
 with open(weather_output_data) as json_file:
-    data = json.load(json_file)                
-    image, _image = populate_image1(data)
-    while True:
-        cv2.imshow('',_image)
-        if cv2.waitKey(25) & 0xFF==ord('q'):
-            cv2.destroyAllWindows()
-            break
-    cv2.imwrite(weather_texture, image)       
+    data = json.load(json_file)
+    for i in range(len(data)):
+        if (data[i]['header']['parameterNumberName'] == 'U-component_of_wind' and
+            data[i]['header']['surface1Value'] == 0.995):
+            u=i
+        if (data[i]['header']['parameterNumberName'] == 'V-component_of_wind' and
+            data[i]['header']['surface1Value'] == 0.995):
+            v=i
+    image = generate_windspeedmap(u,v,data)
+    cv2.imwrite(wind_texture, image)       
+    
+with open(clouds_output_data) as json_file:
+    data = json.load(json_file)
+    for i in range(len(data)):
+        if(i==0):
+            image = generate_total_clouds_coverage(i,data)
+        else:
+            image += generate_total_clouds_coverage(i,data);
+    image /= (len(data)*100.5)
+        #cv2.imwrite('imagedata\clouds{}.jpg'.format(i), image)
+        #cv2.imwrite(clouds_texture, image)
+    cv2.imwrite('imagedata\clouds.jpg', image)
