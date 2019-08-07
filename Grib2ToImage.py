@@ -17,11 +17,12 @@ Pi = 3.14159
 weather_cmd = 'bin\grib2json.cmd'
 wind_input_data = 'gribdata\windsigma995.anl'
 wind_output_data = 'jsondata\windsigma995.json'
-wind_texture = 'imagedata\windsigma995.jpg'
+wind_texture = 'imagedata\speedwindsigma995.jpg'
+wind_dirs_texture = 'imagedata\dirswindsigma995.jpg'
 
 clouds_input_data = 'gribdata\clouds'
 clouds_output_data = 'jsondata\clouds.json'
-clouds_texture = 'imagedata\clouds.jpg'
+clouds_texture = 'imagedata\clouds.png'
 
 weather_input_data = 'gribdata\weather'
 weather_output_data = 'jsondata\weather'
@@ -66,7 +67,6 @@ def compute_color1(val):
 
 def generate_windspeedmap(u,v,data):
     image = []
-    _image=[]
     nx = (data[u]['header']['nx'])
     ny = (data[u]['header']['ny'])
     numberPoints = (data[0]['header']['numberPoints']);
@@ -74,15 +74,14 @@ def generate_windspeedmap(u,v,data):
         val, _val = compute_color1(math.sqrt(math.pow(data[u]['data'][i],2)+math.pow(data[v]['data'][i],2)))
         for c in range(len(val)):
             image.append(val[c]);
-            _image.append(_val[c]);
     
     image = np.array(image);
     image = image.reshape(ny,nx,3);
     image1 = image[0:ny, 0:int(nx/2)]
     image2 = image[0:ny, int(nx/2):nx]
     image=np.concatenate((image2, image1), axis=1)
-    
     return image
+
 def generate_total_clouds_coverage(n,data):
     image = []
     nx = (data[0]['header']['nx'])
@@ -91,22 +90,35 @@ def generate_total_clouds_coverage(n,data):
     for i in range(len(data)):
         for j in range(data[0]['header']['numberPoints']):
             if(i==n):
-                image.append(255.0*data[i]['data'][j])
-                image.append(255.0*data[i]['data'][j])
-                image.append(255.0*data[i]['data'][j])
-# =============================================================================
-#             else:
-#                 image[j]    +=255.0*data[i]['data'][j]
-#                 image[j+1]  +=255.0*data[i]['data'][j]
-#                 image[j+2]  +=255.0*data[i]['data'][j]
-# =============================================================================
+                image.append(255*data[i]['data'][j])
+                image.append(255*data[i]['data'][j])
+                image.append(255*data[i]['data'][j])
+                
     image = np.array(image);
     image = image.reshape(ny,nx,3);
     image1 = image[0:ny, 0:int(nx/2)]
     image2 = image[0:ny, int(nx/2):nx]
     image=np.concatenate((image2, image1), axis=1)    
     return image;
+
+def wind_dirs(u,v,data):
+    image = []
+    halfrange = 255/2
+    nx = (data[u]['header']['nx'])
+    ny = (data[u]['header']['ny'])
+    numberPoints = (data[0]['header']['numberPoints']);
+    for i  in range(numberPoints):
+        
+        image.append(halfrange + data[u]['data'][i]);
+        image.append(halfrange + data[v]['data'][i]);
+        image.append(0);
     
+    image = np.array(image);
+    image = image.reshape(ny,nx,3);
+    image1 = image[0:ny, 0:int(nx/2)]
+    image2 = image[0:ny, int(nx/2):nx]
+    image=np.concatenate((image2, image1), axis=1)
+    return image
 with open(weather_output_data) as json_file:
     data = json.load(json_file)
     for i in range(len(data)):
@@ -118,6 +130,8 @@ with open(weather_output_data) as json_file:
             v=i
     image = generate_windspeedmap(u,v,data)
     cv2.imwrite(wind_texture, image)       
+    image = wind_dirs(u,v,data)
+    cv2.imwrite(wind_dirs_texture,image)
     
 with open(clouds_output_data) as json_file:
     data = json.load(json_file)
@@ -126,7 +140,9 @@ with open(clouds_output_data) as json_file:
             image = generate_total_clouds_coverage(i,data)
         else:
             image += generate_total_clouds_coverage(i,data);
-    image /= (len(data)*100.5)
+    image /= (len(data)*50)
         #cv2.imwrite('imagedata\clouds{}.jpg'.format(i), image)
         #cv2.imwrite(clouds_texture, image)
+    #np.savetxt('finaldata\clouds.data',image)
+    
     cv2.imwrite('imagedata\clouds.jpg', image)
