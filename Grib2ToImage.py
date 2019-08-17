@@ -22,7 +22,7 @@ wind_dirs_texture = 'imagedata\dirswindsigma995.jpg'
 
 clouds_input_data = 'gribdata\clouds'
 clouds_output_data = 'jsondata\clouds.json'
-clouds_texture = 'imagedata\clouds.png'
+clouds_texture = 'imagedata\clouds.jpg'
 
 weather_input_data = 'gribdata\weather'
 weather_output_data = 'jsondata\weather'
@@ -103,21 +103,39 @@ def generate_total_clouds_coverage(n,data):
 
 def wind_dirs(u,v,data):
     image = []
-    halfrange = 255/2
     nx = (data[u]['header']['nx'])
     ny = (data[u]['header']['ny'])
     numberPoints = (data[0]['header']['numberPoints']);
+    maxu = -99999;
+    minu = 99999;
+    maxv = -99999;
+    minv = 99999;    
     for i  in range(numberPoints):
+        if(data[u]['data'][i]>maxu):
+            maxu = data[u]['data'][i]
+        if(data[u]['data'][i] < minu):
+            minu = data[u]['data'][i]
+            
+        if(data[u]['data'][i]>maxv):
+            maxv = data[v]['data'][i]
+        if(data[u]['data'][i] < minv):
+            minv = data[v]['data'][i]
+
+        image.append(127 + int(data[u]['data'][i]))
+        image.append(127 + int(data[v]['data'][i]))
+        image.append(0)
         
-        image.append(halfrange + data[u]['data'][i]);
-        image.append(halfrange + data[v]['data'][i]);
-        image.append(0);
+        #image.append(int(data[v]['data'][i]))
+        #image.append(-1*int(data[v]['data'][i]))
     
     image = np.array(image);
     image = image.reshape(ny,nx,3);
     image1 = image[0:ny, 0:int(nx/2)]
     image2 = image[0:ny, int(nx/2):nx]
     image=np.concatenate((image2, image1), axis=1)
+    print('maxu:',maxu, 'minu:',minu)
+    print('maxv:',maxv, 'minv:',minv);
+    print(image)
     return image
 with open(weather_output_data) as json_file:
     data = json.load(json_file)
@@ -141,8 +159,5 @@ with open(clouds_output_data) as json_file:
         else:
             image += generate_total_clouds_coverage(i,data);
     image /= (len(data)*50)
-        #cv2.imwrite('imagedata\clouds{}.jpg'.format(i), image)
-        #cv2.imwrite(clouds_texture, image)
-    #np.savetxt('finaldata\clouds.data',image)
-    
     cv2.imwrite('imagedata\clouds.jpg', image)
+    
