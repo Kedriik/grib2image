@@ -36,6 +36,7 @@ if(now.hour>=12):
 if(now.hour>=18):
     h=18
 d = '{}{:02d}{:02d}'.format(now.year, now.month,now.day,h)
+
 #windurl = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}'.format(h,d)
 #url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.f000&var_TCDC=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
 url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
@@ -172,7 +173,13 @@ session.cwd('htdocs')
 file = open(wind_dirs_texture,'rb')
 session.storbinary("STOR " + wind_ftp, file)
 file = open(clouds_texture,'rb')
-session.storbinary("STOR "+ clouds_ftp, file)       
+session.storbinary("STOR "+ clouds_ftp, file)
+with open('lastMapsUpdate.txt', 'w') as file:
+    date = '{:02d}.{:02d}.{}, {:02d}:00 '.format(now.day, now.month, now.year,h)
+    file.write("{\"date\":\""+date+"\"}")
+session.cwd('assets')
+file = open('lastMapsUpdate.txt','rb')
+session.storbinary("STOR "+ 'lastMapsUpdate.txt', file)
 file.close()                                    
 session.quit()
     
