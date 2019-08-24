@@ -13,6 +13,7 @@ import os
 import urllib.request
 from datetime import datetime
 import time
+import ftplib
 Pi = 3.14159
 weather_cmd = 'bin\grib2json.cmd'
 wind_input_data = 'gribdata\windsigma995.anl'
@@ -36,8 +37,8 @@ if(now.hour>=18):
     h=18
 d = '{}{:02d}{:02d}'.format(now.year, now.month,now.day,h)
 #windurl = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}'.format(h,d)
-url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.f000&var_TCDC=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
-
+#url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.f000&var_TCDC=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
+url = 'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?file=gfs.t{:02d}z.pgrb2.0p25.anl&lev_0.995_sigma_level=on&var_UGRD=on&var_VGRD=on&leftlon=0&rightlon=360&toplat=90&bottomlat=-90&dir=%2Fgfs.{}%2F{:02d}'.format(h,d,h)
 urllib.request.urlretrieve(url, weather_input_data)
 #os.system('{} -d -o {} {}'.format(weather_cmd, wind_output_data,wind_input_data))
 #os.system('{} -d -o {} {}'.format(weather_cmd, clouds_output_data,clouds_input_data))
@@ -99,6 +100,7 @@ def generate_total_clouds_coverage(n,data):
     image1 = image[0:ny, 0:int(nx/2)]
     image2 = image[0:ny, int(nx/2):nx]
     image=np.concatenate((image2, image1), axis=1)    
+    image = np.fliplr(image)
     return image;
 
 def wind_dirs(u,v,data):
@@ -135,7 +137,7 @@ def wind_dirs(u,v,data):
     image=np.concatenate((image2, image1), axis=1)
     print('maxu:',maxu, 'minu:',minu)
     print('maxv:',maxv, 'minv:',minv);
-    print(image)
+    #print(image)
     return image
 with open(weather_output_data) as json_file:
     data = json.load(json_file)
@@ -160,4 +162,17 @@ with open(clouds_output_data) as json_file:
             image += generate_total_clouds_coverage(i,data);
     image /= (len(data)*50)
     cv2.imwrite('imagedata\clouds.jpg', image)
+    
+clouds_ftp = "clouds.970cdc76bad34c2b6814.jpg"
+wind_ftp = "dirswindsigma995.220f447bfc97256a30c0.jpg"
+
+
+session = ftplib.FTP(host, username, password)
+session.cwd('htdocs')
+file = open(wind_dirs_texture,'rb')
+session.storbinary("STOR " + wind_ftp, file)
+file = open(clouds_texture,'rb')
+session.storbinary("STOR "+ clouds_ftp, file)       
+file.close()                                    
+session.quit()
     
