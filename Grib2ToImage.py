@@ -164,12 +164,13 @@ with open(clouds_output_data) as json_file:
     image /= (len(data)*50)
     cv2.imwrite('imagedata\clouds.jpg', image)
     
-clouds_ftp = "clouds.970cdc76bad34c2b6814.jpg"
-wind_ftp = "dirswindsigma995.220f447bfc97256a30c0.jpg"
+clouds_ftp = "clouds.jpg"
+wind_ftp = "dirswindsigma995.jpg"
 
 
 session = ftplib.FTP(host, username, password)
 session.cwd('htdocs')
+session.cwd('assets')
 file = open(wind_dirs_texture,'rb')
 session.storbinary("STOR " + wind_ftp, file)
 file = open(clouds_texture,'rb')
@@ -177,7 +178,6 @@ session.storbinary("STOR "+ clouds_ftp, file)
 with open('lastMapsUpdate.txt', 'w') as file:
     date = '{:02d}.{:02d}.{}, {:02d}:00 '.format(now.day, now.month, now.year,h)
     file.write("{\"date\":\""+date+"\"}")
-session.cwd('assets')
 file = open('lastMapsUpdate.txt','rb')
 session.storbinary("STOR "+ 'lastMapsUpdate.txt', file)
 file.close()                                    
